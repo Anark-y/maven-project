@@ -1,0 +1,33 @@
+import hudson.tasks.test.AbstractTestResultAction
+import hudson.model.Actionable
+import hudson.tasks.junit.CaseResult
+
+node 
+{
+    stage('Stage 2. Copy artifacts from the downstream job')
+
+    /* copyArtifacts(projectName: 'Test-Pipe', filter: 'README.md', target: 'artifacts'); */
+    unstash 'war'
+    sh "ls -al"
+
+
+    stage('Stage 3. Profit')
+    /* I assume that after a maven install command that was ran in the Build stage, that all the nessecairy artificats are present. I collect them in a tarball */  
+    sh "tar -cvf chapoo-dev-artifacts.tar  artifacts/"
+
+    /* Next we SCP them to a remove machine, with a specialized account that will deploy on said remote machine. */
+    sh "scp -P 42420 chapoo-dev-artifacts.tar deploy@centos6.anarky.be:./toDeploy"
+
+    /* After the tarball has been copied, start a deployment script on the remote machine */        
+    sh "ssh deploy@centos6.anarky.be -p 42420 'sudo ./toDeploy/deployWars.sh'"
+    
+    /* Clean up the workingDir (makes sure that next build there are no old files present) */
+    deleteDir();
+
+    /* Assumptions: 
+        1) The jenkins account on host needs to have a pubkey which is  added to the authorized_keys file in the target machine's 'deploy' account
+        2) The 'deploy' account needs to be able to sudo from ssh (to run service restarts from script)
+    */    
+}
+    
+    
